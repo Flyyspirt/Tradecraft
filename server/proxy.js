@@ -44,6 +44,7 @@ let reconnectTimer = null;
 let heartbeatTimer = null;
 let currentPrice = 0;
 let wsConnected = false;
+let recentAlerts = []; // Store recent crossovers for n8n/Azure to fetch
 
 // All connected browser clients
 const browserClients = new Set();
@@ -52,10 +53,11 @@ const browserClients = new Set();
 const app = express();
 
 // CORS middleware — allow all origins (this is a local proxy)
+app.use(express.json()); // Added for parsing JSON POST requests
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
-  res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   if (req.method === 'OPTIONS') return res.sendStatus(200);
   next();
 });
@@ -105,6 +107,34 @@ app.get('/api/status', (req, res) => {
     browserClients: browserClients.size,
     cache: cacheStatus,
     uptime: process.uptime(),
+  });
+});
+
+// ── Webhook / Alert Endpoints (for n8n & Azure) ────────────
+
+// Endpoint for frontend to push a new crossover alert
+app.post('/api/alerts', (req, res) => {
+  const alert = req.body;
+  if (!alert || !alert.timeframe) {
+    return res.status(400).json({ error: 'Invalid alert payload' });
+  }
+  
+  // Store the alert in memory
+  recentAlerts.unshift(alert);
+  if (recentAlerts.length > 200) recentAlerts.pop();
+
+  log(`[ALERT] ${alert.timeframe} MA${alert.shortPeriod}xMA${alert.longPeriod} ${alert.type.toUpperCase()} @ $${alert.price}`);
+  
+  res.json({ success: true });
+});
+
+// Endpoint for external orchestrators (n8n/Azure) to fetch recent alerts
+app.get('/api/alerts', (req, res) => {
+  // Optional: Add basic API key validation here for production
+  res.json({
+    success: true,
+    count: recentAlerts.length,
+    alerts: recentAlerts
   });
 });
 

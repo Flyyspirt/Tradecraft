@@ -273,6 +273,13 @@ class MAEngine {
         s.crossovers.push(event);
         this.crossoverLog.push(event);
 
+        // Emit to proxy server for n8n/Azure orchestration
+        fetch(CONFIG.API_BASE.replace('/candles', '') + '/alerts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(event)
+        }).catch(err => console.error('Alert emit failed', err));
+
         // Keep logs bounded
         if (s.crossovers.length > 50) s.crossovers = s.crossovers.slice(-50);
         if (this.crossoverLog.length > 200) this.crossoverLog = this.crossoverLog.slice(-200);
