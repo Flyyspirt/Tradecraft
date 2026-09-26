@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>BTC/USD — MA Ladder · Tradecraft</title>
+  <meta name="description" content="Live Bitcoin futures Moving Average dashboard with multi-timeframe analysis, crossover detection, and heatmap matrix.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- ═══ Header Panel ═══ -->
+  <div class="terminal">
+    <div class="header">
+      <div class="pair-block">
+        <div class="pair">BTC/USD&#8209;PERP</div>
+        <div class="live-row">
+          <span class="live-dot" id="statusDot"></span>
+          <span id="statusText">initializing…</span>
+        </div>
+      </div>
+      <div class="price-block">
+        <div class="price mono" id="priceEl">$0.00</div>
+        <div class="change mono" id="changeEl">+0.00%</div>
+      </div>
+    </div>
+
+    <!-- Timeframe tabs -->
+    <div class="tabs-wrap">
+      <div class="tabs" id="tabs"></div>
+    </div>
+
+    <div class="legend">
+      <span><span class="dot" style="background:var(--native-dot)"></span>native candle</span>
+      <span><span class="dot" style="background:var(--resampled-dot)"></span>built by resampling</span>
+    </div>
+
+    <!-- Controls bar -->
+    <div class="controls-bar">
+      <div class="controls-left">
+        <button class="view-toggle" id="viewToggle">⊞ Matrix</button>
+        <button class="view-toggle" id="docToggle" style="margin-left: 12px;">📖 Documentation</button>
+      </div>
+      <div class="controls-right" id="sortWrap" style="display:flex; gap:12px; align-items:center;">
+        <div>
+          <span class="sort-label">Display</span>
+          <select class="sort-select" id="ladderDisplayMode">
+            <option value="distance" selected>Distance (bps)</option>
+            <option value="diff_pts">Δ from Prev (pts)</option>
+            <option value="diff_pct">Δ from Prev (%)</option>
+          </select>
+        </div>
+        <div>
+          <span class="sort-label">Sort by</span>
+          <select class="sort-select" id="sortSelect">
+            <option value="distance" selected>Distance from price</option>
+            <option value="value">MA Value</option>
+            <option value="rate">Rate of change</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ Ladder View ═══ -->
+    <div class="ladder-view" id="ladderView">
+      <div id="ladderBody"></div>
+    </div>
+
+    <!-- ═══ Heatmap View ═══ -->
+    <div class="heatmap-view" id="heatmapView" style="display:none">
+      <div class="hm-grid" id="heatmapGrid"></div>
+    </div>
+
+    <!-- ═══ Documentation View ═══ -->
+    <div class="doc-view" id="docView" style="display:none">
+      <div class="doc-content">
+        <h1>Tradecraft MA Dashboard — Official Guide</h1>
+        <p class="doc-intro">This professional explanatory guide details the core functionalities, symbol iconographies, and data models powering the Tradecraft platform. Designed for institutional futures traders, the dashboard provides a high-throughput, latency-optimized visual interface for executing multi-timeframe structural analysis.</p>
+        
+        <h2>1. The Ladder View (Support & Resistance Map)</h2>
+        <p>The primary execution view designed to instantly answer: <em>"Where are the Moving Average (MA) levels relative to the current live price, and how far away is each one?"</em></p>
+        <ul>
+          <li><strong style="color: var(--up)">Green Bars (Support):</strong> Moving averages positioned <em>below</em> the current live price. These levels act as potential price floors where buyers historically step in.</li>
+          <li><strong style="color: var(--down)">Red Bars (Resistance):</strong> Moving averages positioned <em>above</em> the current live price. These levels act as potential price ceilings where sellers historically take profit.</li>
+          <li><strong>Bar Length:</strong> Represents the percentage distance from the current price. Visually extending bars indicate that the price is far from its mean, suggesting overextension and potential mean-reversion opportunities.</li>
+          <li><strong>Basis Points (bps):</strong> The precise numeric distance to the MA level (100 bps = 1.00%). Using basis points normalizes volatility measurements across different absolute price levels.</li>
+        </ul>
+
+        <h2>2. Trend Iconography (MA Momentum)</h2>
+        <p>Alongside each MA level is a directional arrow. This iconography does not represent the current price direction, but rather the <strong>momentum of the moving average itself</strong>:</p>
+        <div class="icon-grid">
+          <div><span class="mono">↑</span> <strong>Strongly Rising:</strong> High bullish momentum baked into recent closing prices.</div>
+          <div><span class="mono">↗</span> <strong>Rising:</strong> Mild bullish drift; structural trend remains intact.</div>
+          <div><span class="mono">─</span> <strong>Flat:</strong> Market consolidation; neutral directional bias.</div>
+          <div><span class="mono">↘</span> <strong>Falling:</strong> Mild bearish drift; structure weakening.</div>
+          <div><span class="mono">↓</span> <strong>Strongly Falling:</strong> High bearish momentum; aggressive sell pressure.</div>
+        </div>
+
+        <h2>3. The Matrix Heatmap (Multi-Timeframe Confluence)</h2>
+        <p>The Matrix is a high-density, 180-cell confluence map. It visualizes all 10 MA periods across all 18 timeframes simultaneously. This global view allows for rapid identification of macroeconomic alignment.</p>
+        <ul>
+          <li><strong>Bright Green Cells:</strong> Extremely bullish structure on that specific timeframe and period.</li>
+          <li><strong>Dim Green / Red Cells:</strong> Price is tightly hugging the MA line (testing support/resistance).</li>
+          <li><strong>Bright Red Cells:</strong> Extremely bearish structure.</li>
+        </ul>
+        <p><em>Go-to-Market Trading Strategy:</em> Look for vertical or horizontal color uniformity. An entire column turning red indicates a specific timeframe has flipped completely bearish, warning of a potential trend reversal.</p>
+
+        <h2>4. Live Crossover Scanner</h2>
+        <p>The bottom panel continuously monitors 810 possible MA relationships (45 pairs × 18 timeframes) in real-time, instantly surfacing critical structural shifts.</p>
+        <ul>
+          <li><strong style="color: var(--up)">▲ Golden Cross (Bullish):</strong> A shorter-period MA crosses above a longer-period MA. Indicates accelerating short-term momentum.</li>
+          <li><strong style="color: var(--down)">▼ Death Cross (Bearish):</strong> A shorter-period MA crosses below a longer-period MA. Indicates decelerating short-term momentum.</li>
+        </ul>
+
+        <h2>5. Core Technology & Data Pipeline</h2>
+        <p>The dashboard is powered by a proprietary Node.js WebSocket proxy architecture connected directly to the Delta Exchange API. All data relies on <strong>Simple Moving Averages (SMA)</strong>—calculated as the arithmetic mean of the last <em>N</em> closing prices, ensuring true unweighted mean representations.</p>
+        <p>Timeframes marked with a <span class="dot" style="background:var(--resampled-dot); display:inline-block"></span> grey dot (e.g., 10m, 45m, 6h) are synthetically constructed via client-side resampling of native 1m candles, providing deep granularity without additional API latency overhead.</p>
+      </div>
+    </div>
+
+    <div class="footer-note">
+      Rows above the amber line sit above the live price (resistance); rows below sit under it (support).
+      Bar length shows distance from price. Values are Simple Moving Averages (MA) — arithmetic mean of the last N closes.
+      MA values update on each new candle close for the selected timeframe.
+    </div>
+  </div>
+
+  <!-- ═══ Crossover Scanner ═══ -->
+  <div class="crossover-panel" id="crossoverPanel">
+    <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center;">
+      <div>
+        <span>⚡ MA Crossover Scanner</span>
+        <span class="badge">LIVE</span>
+      </div>
+      <div style="display:flex; gap:12px;">
+        <select id="xoTimeframeFilter" class="sort-select" style="padding:2px 8px; font-size:11px;">
+          <option value="ALL">All Timeframes</option>
+          <!-- Options will be populated by JS -->
+        </select>
+        <select id="xoDisplayMode" class="sort-select" style="padding:2px 8px; font-size:11px;">
+          <option value="pct">Spread (%)</option>
+          <option value="pts">Spread (pts)</option>
+        </select>
+      </div>
+    </div>
+    <div class="xo-list" id="crossoverList">
+      <div class="xo-empty">Monitoring for crossovers…</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Scripts (order matters: config → engine → api → renderer → app) -->
+<script src="js/config.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/api.js"></script>
+<script src="js/renderer.js"></script>
+<script src="js/app.js"></script>
+
+</body>
+</html>
