@@ -81,28 +81,6 @@ class MAEngine {
     s.initialized = true;
   }
 
-  // ── Projected MAs using current live price ───────────────
-  // Treats current price as if the current candle just closed
-  getProjectedMAs(tfIndex) {
-    const s = this.state[tfIndex];
-    if (!s.initialized || s.candles.length === 0) return null;
-
-    // Create a temporary candle array with current price appended
-    const tempCandles = s.candles.concat([{
-      time: Date.now() / 1000,
-      open: this.currentPrice,
-      high: this.currentPrice,
-      low: this.currentPrice,
-      close: this.currentPrice,
-      volume: 0,
-    }]);
-
-    const projected = {};
-    PERIODS.forEach(period => {
-      projected[period] = this._computeSMA(tempCandles, period);
-    });
-    return projected;
-  }
 
   // ── Get full state for a timeframe ───────────────────────
   getTimeframeState(tfIndex) {
