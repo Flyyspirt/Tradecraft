@@ -251,8 +251,8 @@ class MAEngine {
         s.crossovers.push(event);
         this.crossoverLog.push(event);
 
-        // Emit to proxy server for n8n/Azure orchestration
-        fetch(CONFIG.API_BASE.replace('/candles', '') + '/alerts', {
+        // Emit to proxy server for n8n orchestration
+        fetch(`${CONFIG.API_BASE}/alerts`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(event)

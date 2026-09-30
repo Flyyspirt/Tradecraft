@@ -34,32 +34,90 @@ Continuously monitors 810 possible MA relationships in real-time.
 2. **Access the Dashboard:**
    Open a browser and navigate to `http://localhost:3000/index.html`.
 
-## Deployment Guide
+## Deployment Guide — Railway
 
-The dashboard is composed of two parts: the Frontend UI (static files) and the Backend Proxy (Node.js/Express). 
+We deploy the **Tradecraft dashboard** and the **n8n automation engine** as separate services inside a single [Railway](https://railway.com) project. Railway provides automatic CI/CD from GitHub, zero-downtime deploys, built-in HTTPS, and private internal networking between services.
 
-### 1. Azure App Service (Backend Proxy)
-Since the proxy maintains a persistent WebSocket connection to Delta Exchange and holds memory state for historical caching, it must run on a persistent server (not a serverless function).
-1. Connect your Azure account to this GitHub repository.
-2. Create a new **Azure App Service (Node.js 20.x)**.
-3. Set the startup command to `npm start` and root directory to `/server`.
-4. The proxy will now listen and broadcast at your Azure URL (e.g., `https://tradecraft-proxy.azurewebsites.net`).
+### Architecture Overview
 
-### 2. Vercel (Frontend Dashboard)
-Vercel is optimal for the extremely fast delivery of our static frontend assets.
-1. Import this GitHub repository into Vercel.
-2. Override the Build Command to empty (it's static) and set Output Directory to the root.
-3. In `js/config.js`, update `API_BASE` and `WS_URL` to point to your new Azure App Service URL instead of `localhost:3000`.
-4. Vercel will deploy your dashboard.
+```
+┌─────────────────── Railway Project ───────────────────┐
+│                                                       │
+│  ┌──────────────┐     internal      ┌──────────────┐  │
+│  │  Tradecraft   │ ──── webhook ──→ │     n8n      │  │
+│  │  Node.js      │    (private)     │  Automation  │  │
+│  │  Proxy +      │                  │  Engine      │  │
+│  │  Dashboard    │                  │  + Postgres  │  │
+│  └──────┬───────┘                  └──────────────┘  │
+│         │                                             │
+│         ├── REST API  (/api/candles, /api/alerts)     │
+│         ├── WebSocket (/ws) — live price + candles    │
+│         └── Static UI (index.html, css/, js/)         │
+│                                                       │
+└───────────────────────────────────────────────────────┘
+          ↕ wss://                    ↕ External APIs
+   Delta Exchange API            (OpenAI, Telegram, etc.)
+```
 
-### 3. Domain Configuration (tradecraftai.com)
-1. Purchase `tradecraftai.com` (via Vercel, GoDaddy, Namecheap, etc.).
-2. In Vercel, go to **Settings > Domains** and add `tradecraftai.com`.
-3. Add the provided CNAME/A records to your domain registrar's DNS settings.
+### Prerequisites
+- A [Railway account](https://railway.com) (Hobby plan: $5/mo, includes $5 usage credit)
+- This repository pushed to GitHub
 
-## Integrating with n8n / Orchestrators
-The dashboard engine will automatically push crossover alerts to the proxy's webhook ingestion endpoint. 
-To route these to **n8n**:
-1. Open `server/proxy.js` and locate `app.post('/api/alerts')`.
-2. Add an HTTP POST payload forwarding the `alert` JSON to your n8n Catch Hook URL.
-3. Your Azure orchestrator / n8n workflow can now trigger email alerts, SMS, or automated trades using these real-time signals.
+### Step 1 — Deploy n8n (Orchestration Engine)
+1. Log into Railway and click **New Project** → **Deploy from Template**.
+2. Search for **"n8n"** and select the official community template.
+3. Railway will automatically provision a **PostgreSQL** database and deploy n8n.
+4. Click the n8n service → **Settings → Networking → Generate Domain** to get a public URL.
+5. Open the n8n URL in your browser and create your admin account.
+
+### Step 2 — Deploy Tradecraft (Dashboard + Proxy)
+1. Inside the same Railway project, click **New** → **GitHub Repo** → select `Flyyspirt/Tradecraft`.
+2. Railway will auto-detect the `railway.json` configuration file which handles:
+   - **Build**: `cd server && npm install`
+   - **Start**: `cd server && npm start`
+   - **Restart Policy**: Auto-restart on failure (max 10 retries)
+3. Click the Tradecraft service → **Settings → Networking → Generate Domain**.
+4. Your live dashboard URL will be something like: `https://tradecraft-production-XXXX.up.railway.app`
+
+> **Note:** No manual configuration is needed for API endpoints. The frontend (`js/config.js`) auto-detects whether it's running on `localhost` or a production domain and configures `API_BASE` and `WS_URL` accordingly.
+
+### Step 3 — Domain Configuration (Optional)
+1. Purchase `tradecraftai.com` from any registrar (Namecheap, Cloudflare, etc.).
+2. In Railway, go to the Tradecraft service → **Settings → Networking → Custom Domains** → add `tradecraftai.com`.
+3. Add the provided CNAME record to your domain registrar's DNS settings.
+4. Railway will automatically provision and renew SSL certificates.
+
+### Step 4 — Connect Tradecraft Alerts to n8n
+Both services live in the same Railway project, so they can communicate via Railway's private internal network with zero latency.
+
+1. In n8n, create a new workflow with a **Webhook** trigger node (method: POST). Copy the webhook URL.
+2. In `server/proxy.js`, locate `app.post('/api/alerts')` and add a `fetch()` call to forward the alert payload to your n8n webhook URL.
+3. n8n can now process real-time MA crossover signals to trigger:
+   - Telegram/Discord/Slack notifications
+   - Trade execution via exchange APIs
+   - Data logging to Google Sheets or a database
+
+### Environment Variables (Auto-Set by Railway)
+| Variable | Description |
+|---|---|
+| `PORT` | Injected by Railway — the proxy server binds to this automatically |
+| `RAILWAY_PUBLIC_DOMAIN` | Your service's public URL |
+| `RAILWAY_PRIVATE_DOMAIN` | Internal URL for service-to-service communication |
+
+### Project Structure
+```
+Tradecraft/
+├── index.html              # Dashboard UI entry point
+├── css/dashboard.css       # Styling
+├── js/
+│   ├── config.js           # Auto-detecting API/WS endpoints
+│   ├── engine.js           # SMA calculation, crossover detection
+│   ├── api.js              # WebSocket + REST client
+│   ├── renderer.js         # DOM rendering (ladder, heatmap, crossovers)
+│   └── app.js              # Main orchestrator
+├── server/
+│   ├── proxy.js            # Node.js proxy (Express + WS bridge to Delta Exchange)
+│   └── package.json        # Server dependencies (express, ws)
+├── railway.json            # Railway build + deploy configuration
+└── README.md               # This file
+```

@@ -98,8 +98,8 @@ app.get('/api/cache/:resolution', (req, res) => {
 // ── Cache status endpoint ──────────────────────────────────
 app.get('/api/status', (req, res) => {
   const cacheStatus = {};
-  for (const [res, candles] of Object.entries(candleCache)) {
-    cacheStatus[res] = candles.length;
+  for (const [resolution, candles] of Object.entries(candleCache)) {
+    cacheStatus[resolution] = candles.length;
   }
   res.json({
     wsConnected,

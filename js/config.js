@@ -2,11 +2,22 @@
 //  config.js — Constants & configuration for the MA Dashboard
 // ─────────────────────────────────────────────────────────────
 
+// ── Auto-detect environment ──────────────────────────────────
+// Works on both localhost:3000 and Railway production deployment
+const _isLocal = typeof window !== 'undefined' && window.location.hostname === 'localhost';
+const _httpBase = _isLocal
+  ? 'http://localhost:3000'
+  : `${window.location.protocol}//${window.location.host}`;
+const _wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+const _wsBase = _isLocal
+  ? 'ws://localhost:3000'
+  : `${_wsProto}//${window.location.host}`;
+
 const CONFIG = {
   // ── API Endpoints ──────────────────────────────────────────
-  // Local Proxy endpoints
-  API_BASE: 'http://localhost:3000/api',
-  WS_URL: 'ws://localhost:3000/ws',
+  // Auto-detected — no manual changes needed for deployment
+  API_BASE: `${_httpBase}/api`,
+  WS_URL: `${_wsBase}/ws`,
   SYMBOL: 'BTCUSDT',
 
   // ── Candle limits ──────────────────────────────────────────

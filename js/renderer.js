@@ -281,7 +281,7 @@ class DashboardRenderer {
 
     let filtered = dataToRender;
     if (this.xoTfFilterVal !== 'ALL') {
-      filtered = crossovers.filter(xo => xo.timeframe === this.xoTfFilterVal);
+      filtered = dataToRender.filter(xo => xo.timeframe === this.xoTfFilterVal);
     }
 
     if (filtered.length === 0) {
