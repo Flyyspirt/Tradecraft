@@ -1,0 +1,14 @@
+{
+  "name": "tradecraft",
+  "version": "1.0.0",
+  "description": "Tradecraft MA Dashboard",
+  "main": "server/proxy.js",
+  "scripts": {
+    "start": "node server/proxy.js",
+    "dev": "node server/proxy.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "ws": "^8.18.0"
+  }
+}
