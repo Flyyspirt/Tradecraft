@@ -251,12 +251,8 @@ class MAEngine {
         s.crossovers.push(event);
         this.crossoverLog.push(event);
 
-        // Emit to proxy server for n8n orchestration
-        fetch(`${CONFIG.API_BASE}/alerts`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(event)
-        }).catch(err => console.error('Alert emit failed', err));
+        // Frontend no longer pushes to the server; the server detects crossovers itself 24/7.
+        // We only maintain the local log for UI rendering.
 
         // Keep logs bounded
         if (s.crossovers.length > 50) s.crossovers = s.crossovers.slice(-50);

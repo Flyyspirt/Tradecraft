@@ -112,25 +112,16 @@ app.get('/api/status', (req, res) => {
 
 // ── Webhook / Alert Endpoints (for n8n & Azure) ────────────
 
-// Endpoint for frontend to push a new crossover alert
-app.post('/api/alerts', (req, res) => {
-  const alert = req.body;
-  if (!alert || !alert.timeframe) {
-    return res.status(400).json({ error: 'Invalid alert payload' });
-  }
-  
-  // Store the alert in memory
-  recentAlerts.unshift(alert);
-  if (recentAlerts.length > 200) recentAlerts.pop();
-
-  log(`[ALERT] ${alert.timeframe} MA${alert.shortPeriod}xMA${alert.longPeriod} ${alert.type.toUpperCase()} @ $${alert.price}`);
-  
-  res.json({ success: true });
-});
-
 // Endpoint for external orchestrators (n8n/Azure) to fetch recent alerts
 app.get('/api/alerts', (req, res) => {
-  // Optional: Add basic API key validation here for production
+  const authHeader = req.headers['x-tradecraft-auth'];
+  const expectedSecret = process.env.TRADECRAFT_SECRET;
+
+  // If a secret is configured on the server, require it
+  if (expectedSecret && authHeader !== expectedSecret) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
   res.json({
     success: true,
     count: recentAlerts.length,
@@ -320,6 +311,97 @@ function updateCandleCache(resolution, candle) {
       candleCache[resolution] = cache.slice(-maxSize);
     }
   }
+
+  // Run server-side crossover detection on updated cache
+  runCrossoverEngine(resolution, cache);
+}
+
+// ── Server-Side Crossover Engine ───────────────────────────
+const PERIODS = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+const previousMAs = {}; 
+
+function computeSMA(candles, period) {
+  if (candles.length === 0) return 0;
+  const slice = candles.slice(-period);
+  const sum = slice.reduce((acc, c) => acc + c.close, 0);
+  return sum / slice.length;
+}
+
+function getRelativePositions(mas) {
+  const positions = {};
+  for (let i = 0; i < PERIODS.length; i++) {
+    for (let j = i + 1; j < PERIODS.length; j++) {
+      const key = `${PERIODS[i]}_${PERIODS[j]}`;
+      const shortVal = mas[PERIODS[i]] || 0;
+      const longVal = mas[PERIODS[j]] || 0;
+      positions[key] = {
+        status: shortVal > longVal ? 'above' : 'below',
+        shortVal,
+        longVal
+      };
+    }
+  }
+  return positions;
+}
+
+function runCrossoverEngine(resolution, cache) {
+  if (!cache || cache.length === 0) return;
+
+  const currentMAs = {};
+  PERIODS.forEach(period => {
+    currentMAs[period] = computeSMA(cache, period);
+  });
+
+  const newPositions = getRelativePositions(currentMAs);
+
+  if (!previousMAs[resolution]) {
+    previousMAs[resolution] = newPositions;
+    return;
+  }
+
+  const prevPositions = previousMAs[resolution];
+
+  Object.keys(newPositions).forEach(key => {
+    if (prevPositions[key] && prevPositions[key].status !== newPositions[key].status) {
+      const [shortPeriod, longPeriod] = key.split('_').map(Number);
+      
+      const type = newPositions[key].status === 'above' ? 'bullish' : 'bearish';
+      const event = {
+        time: Date.now(),
+        timeframe: resolution,
+        shortPeriod,
+        longPeriod,
+        type,
+        price: currentPrice,
+        currShortVal: newPositions[key].shortVal,
+        currLongVal: newPositions[key].longVal,
+        prevShortVal: prevPositions[key].shortVal,
+        prevLongVal: prevPositions[key].longVal
+      };
+      
+      recentAlerts.unshift(event);
+      if (recentAlerts.length > 200) recentAlerts.pop();
+
+      log(`[ALERT] ${event.timeframe} MA${event.shortPeriod}xMA${event.longPeriod} ${event.type.toUpperCase()} @ $${event.price}`);
+      
+      // Fire to n8n webhook securely
+      const webhookUrl = process.env.N8N_WEBHOOK_URL;
+      const webhookSecret = process.env.N8N_WEBHOOK_SECRET;
+      
+      if (webhookUrl) {
+        fetch(webhookUrl, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'X-Tradecraft-Auth': webhookSecret || ''
+          },
+          body: JSON.stringify(event)
+        }).catch(err => log(`[Alert Engine] Webhook failed: ${err.message}`));
+      }
+    }
+  });
+
+  previousMAs[resolution] = newPositions;
 }
 
 // ── Bootstrap: Fetch historical candles on startup ─────────
