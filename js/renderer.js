@@ -387,9 +387,9 @@ class DashboardRenderer {
     }
 
     // historyData is [newest, ..., oldest]
-    // Add an index property where oldest is 1, newest is N
+    // Current (newest) candle is index 1.
     const indexedData = historyData.map((c, idx) => {
-      return { ...c, candleIndex: historyData.length - idx };
+      return { ...c, candleIndex: idx + 1 };
     });
 
     let displayData = indexedData;
@@ -410,7 +410,7 @@ class DashboardRenderer {
 
       pageData.forEach((candle) => {
         const isSelected = candle.time === this.selectedHistoryTime;
-        const d = new Date(candle.time * 1000);
+        const d = this._getValidDate(candle.time);
         const timeStr = d.toLocaleTimeString('en-US', { hour12: false }) + ' ' + d.toLocaleDateString();
         
         const trClass = isSelected ? 'background: var(--bg-hover); font-weight: bold; cursor: pointer;' : 'cursor: pointer; border-bottom: 1px solid var(--border);';
@@ -443,7 +443,7 @@ class DashboardRenderer {
                       color: ${color}; font-family: var(--font-mono); font-size: 10px;"
                title="Candle #${candle.candleIndex}">
             #${candle.candleIndex}<br>
-            <span style="font-size: 8px; color: var(--text-faint);">${(new Date(candle.time * 1000)).toLocaleTimeString('en-US', {hour12: false}).slice(0, 5)}</span>
+            <span style="font-size: 8px; color: var(--text-faint);">${this._getValidDate(candle.time).toLocaleTimeString('en-US', {hour12: false}).slice(0, 5)}</span>
           </div>
         `;
       });
@@ -453,13 +453,17 @@ class DashboardRenderer {
     // Render lookup pane
     const selectedCandle = historyData.find(c => c.time === this.selectedHistoryTime);
     if (selectedCandle) {
-      const d = new Date(selectedCandle.time * 1000);
+      const d = this._getValidDate(selectedCandle.time);
       const timeStr = d.toLocaleTimeString('en-US', { hour12: false }) + ' ' + d.toLocaleDateString();
+      const candleSpread = Math.abs(selectedCandle.close - selectedCandle.open);
       
       let lookupHtml = `<div style="margin-bottom: 16px;">
         <div style="color: var(--text-muted); margin-bottom: 8px;">Time: ${timeStr}</div>
-        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 4px;">
+        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 4px; margin-bottom: 6px;">
           <span>Price (Close)</span> <span>$${this._fmt(selectedCandle.close)}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 4px;">
+          <span>Candle Value (Spread)</span> <span style="color: var(--amber);">$${candleSpread.toFixed(2)}</span>
         </div>
       </div>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
@@ -613,5 +617,13 @@ class DashboardRenderer {
     if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
     if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
     return `${Math.floor(seconds / 86400)}d`;
+  }
+
+  _getValidDate(t) {
+    if (!t) return new Date();
+    let ms = t;
+    if (ms < 1e11) ms *= 1000;
+    else if (ms > 1e14) ms = Math.floor(ms / 1000);
+    return new Date(ms);
   }
 }
