@@ -298,14 +298,17 @@ function updateCandleCache(resolution, candle) {
 
   const cache = candleCache[resolution];
 
-  // Check if this candle updates the last one (same timestamp) or is new
-  if (cache.length > 0 && cache[cache.length - 1].time === candle.time) {
-    // Update in-place (candle still forming)
-    cache[cache.length - 1] = candle;
+  // Find if this candle already exists in cache
+  const existingIdx = cache.findIndex(c => c.time === candle.time);
+  if (existingIdx !== -1) {
+    cache[existingIdx] = candle;
   } else {
-    // New candle
+    // New candle out of order, or newest
     cache.push(candle);
-
+    
+    // Sort array by time ascending to guarantee chronological order
+    cache.sort((a, b) => a.time - b.time);
+    
     // Keep buffer bounded
     const maxSize = BOOTSTRAP_RESOLUTIONS[resolution]?.candles || 200;
     if (cache.length > maxSize + 50) {

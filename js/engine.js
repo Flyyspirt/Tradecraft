@@ -56,17 +56,17 @@ class MAEngine {
   updateTimeframeMA(tfIndex, newCandle) {
     const s = this.state[tfIndex];
 
-    // Check if this is an update to the current forming candle or a new candle
-    const lastCandle = s.candles.length > 0 ? s.candles[s.candles.length - 1] : null;
-    const isUpdate = lastCandle && lastCandle.time === newCandle.time;
+    // Check if this is an update to an existing candle or a new candle
+    const existingIdx = s.candles.findIndex(c => c.time === newCandle.time);
 
-    if (!isUpdate) {
+    if (existingIdx !== -1) {
+      // Update in-place
+      s.candles[existingIdx] = newCandle;
+    } else {
       // Only save prevMAs when a new candle actually closes/forms
       s.prevMAs = { ...s.mas };
       s.candles.push(newCandle);
-    } else {
-      // Update in-place
-      s.candles[s.candles.length - 1] = newCandle;
+      s.candles.sort((a, b) => a.time - b.time);
     }
     // Keep buffer at longest period + margin
     const maxKeep = PERIODS[PERIODS.length - 1] + 10;
