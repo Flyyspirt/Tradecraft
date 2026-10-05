@@ -7,7 +7,7 @@
   <meta name="description" content="Live Bitcoin futures Moving Average dashboard with multi-timeframe analysis, crossover detection, and heatmap matrix.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/dashboard.css">
 </head>
 <body>
@@ -44,6 +44,8 @@
     <div class="controls-bar">
       <div class="controls-left">
         <button class="view-toggle" id="viewToggle">⊞ Matrix</button>
+        <button class="view-toggle" id="historyToggle" style="margin-left: 12px;">🕒 History</button>
+        <button class="view-toggle" id="dataToggle" style="margin-left: 12px;">📊 Mode: Price</button>
         <button class="view-toggle" id="docToggle" style="margin-left: 12px;">📖 Documentation</button>
       </div>
       <div class="controls-right" id="sortWrap" style="display:flex; gap:12px; align-items:center;">
@@ -74,6 +76,61 @@
     <!-- ═══ Heatmap View ═══ -->
     <div class="heatmap-view" id="heatmapView" style="display:none">
       <div class="hm-grid" id="heatmapGrid"></div>
+    </div>
+
+    <!-- ═══ History View ═══ -->
+    <div class="history-view" id="historyView" style="display:none; padding: 20px; color: var(--text-main);">
+      <div class="history-layout">
+        <!-- History Table -->
+        <div class="history-table-container" style="flex: 2; overflow: auto; background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border); display: flex; flex-direction: column;">
+          <div style="padding: 12px; border-bottom: 1px solid var(--border); background: var(--bg-body); display: flex; justify-content: space-between; align-items: center;">
+            <strong style="font-family: var(--font-serif); font-size: 16px; color: var(--amber); letter-spacing: 0.5px;">Candle History</strong>
+            <div style="display: flex; gap: 8px;">
+              <button id="historyModeToggleBtn" style="background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border); padding: 4px 8px; border-radius: 4px; cursor: pointer; font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600;">Mode: Table</button>
+              <button id="historySortBtn" style="background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border); padding: 4px 8px; border-radius: 4px; cursor: pointer; font-family: 'IBM Plex Mono', monospace; font-size: 12px;">Sort: Descending ↓</button>
+            </div>
+          </div>
+          
+          <div id="historyTableWrapper" style="flex: 1; display: flex; flex-direction: column;">
+            <table style="width: 100%; border-collapse: collapse; font-family: 'IBM Plex Mono', monospace; font-size: 13px;">
+              <thead style="background: var(--bg-body); position: sticky; top: 0;">
+                <tr>
+                  <th style="padding: 12px; text-align: left; border-bottom: 1px solid var(--border);">#</th>
+                  <th style="padding: 12px; text-align: left; border-bottom: 1px solid var(--border);">Time</th>
+                  <th style="padding: 12px; text-align: right; border-bottom: 1px solid var(--border);">Open</th>
+                  <th style="padding: 12px; text-align: right; border-bottom: 1px solid var(--border);">High</th>
+                  <th style="padding: 12px; text-align: right; border-bottom: 1px solid var(--border);">Low</th>
+                  <th style="padding: 12px; text-align: right; border-bottom: 1px solid var(--border);">Close</th>
+                </tr>
+              </thead>
+              <tbody id="historyTableBody">
+                <!-- Rendered by JS -->
+              </tbody>
+            </table>
+            
+            <!-- Pagination Controls -->
+            <div style="padding: 12px; border-top: 1px solid var(--border); background: var(--bg-body); display: flex; justify-content: space-between; align-items: center; margin-top: auto;">
+              <button id="historyPrevBtn" style="background: var(--panel-3); color: var(--text); border: 1px solid var(--border); padding: 6px 12px; border-radius: 4px; cursor: pointer; font-family: 'Inter', sans-serif; font-size: 12px;">← Previous</button>
+              <span id="historyPageLabel" style="font-family: 'Inter', sans-serif; font-size: 12px; color: var(--text-dim);">Page 1 of 10</span>
+              <button id="historyNextBtn" style="background: var(--panel-3); color: var(--text); border: 1px solid var(--border); padding: 6px 12px; border-radius: 4px; cursor: pointer; font-family: 'Inter', sans-serif; font-size: 12px;">Next →</button>
+            </div>
+          </div>
+
+          <!-- History Grid Wrapper -->
+          <div id="historyGridWrapper" style="display: none; padding: 16px; flex: 1; overflow-y: auto;">
+            <div id="historyGridBody" style="display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px;">
+              <!-- Grid cells rendered by JS -->
+            </div>
+          </div>
+        </div>
+        <!-- Lookup Pane -->
+        <div class="history-lookup-container" style="flex: 1; background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border); padding: 20px;">
+          <h3 style="margin-top: 0; font-family: var(--font-serif); font-size: 18px; color: var(--amber); letter-spacing: 0.5px; border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 16px;">Candle Lookup</h3>
+          <div id="historyLookupContent" style="font-family: 'IBM Plex Mono', monospace; font-size: 14px;">
+            Select a candle from the table to view its detailed Moving Averages and data.
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- ═══ Documentation View ═══ -->

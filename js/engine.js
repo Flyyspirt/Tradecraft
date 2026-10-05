@@ -56,11 +56,18 @@ class MAEngine {
   updateTimeframeMA(tfIndex, newCandle) {
     const s = this.state[tfIndex];
 
-    // Save previous values for rate-of-change
-    s.prevMAs = { ...s.mas };
+    // Check if this is an update to the current forming candle or a new candle
+    const lastCandle = s.candles.length > 0 ? s.candles[s.candles.length - 1] : null;
+    const isUpdate = lastCandle && lastCandle.time === newCandle.time;
 
-    // Append candle
-    s.candles.push(newCandle);
+    if (!isUpdate) {
+      // Only save prevMAs when a new candle actually closes/forms
+      s.prevMAs = { ...s.mas };
+      s.candles.push(newCandle);
+    } else {
+      // Update in-place
+      s.candles[s.candles.length - 1] = newCandle;
+    }
     // Keep buffer at longest period + margin
     const maxKeep = PERIODS[PERIODS.length - 1] + 10;
     if (s.candles.length > maxKeep) {
@@ -105,17 +112,19 @@ class MAEngine {
 
         const distance = this.currentPrice - maVal;
         const distancePct = (distance / this.currentPrice) * 100;
-        const rateOfChange = s.prevMAs[period]
-          ? ((maVal - s.prevMAs[period]) / s.prevMAs[period]) * 100
-          : 0;
+        const prevVal = s.prevMAs[period] || maVal;
+        const diffPts = maVal - prevVal;
+        const rateOfChange = prevVal ? (diffPts / prevVal) * 100 : 0;
 
         return {
           period,
           value: maVal,
           distance,
           distancePct,
+          diffPts,
           rateOfChange,
           bullish: distance > 0,  // price above MA = bullish
+          momentumBullish: diffPts >= 0 // MA is rising = bullish
         };
       });
     });
@@ -170,19 +179,71 @@ class MAEngine {
     };
   }
 
+  // ── Get Historical Data for a timeframe (1-100 candles) ──
+  getHistoryData(tfIndex) {
+    const s = this.state[tfIndex];
+    if (!s.initialized || s.candles.length === 0) return [];
+
+    // We want the last up to 100 candles.
+    const count = Math.min(100, s.candles.length);
+    const result = [];
+
+    // For each of the last 100 candles, compute the SMA exactly at that point in time
+    const startIndex = s.candles.length - count;
+
+    for (let i = startIndex; i < s.candles.length; i++) {
+      const candle = s.candles[i];
+      const sliceBefore = s.candles.slice(0, i + 1); // Candles up to this one
+
+      const mas = {};
+      PERIODS.forEach(period => {
+        mas[period] = this._computeSMA(sliceBefore, period);
+      });
+
+      result.push({
+        time: candle.time,
+        open: candle.open,
+        high: candle.high,
+        low: candle.low,
+        close: candle.close,
+        volume: candle.volume,
+        mas
+      });
+    }
+
+    return result.reverse(); // Most recent first
+  }
+
   // ── Get global crossover log ─────────────────────────────
   getCrossovers() {
     return this.crossoverLog.slice(-50); // last 50
   }
 
   // ── Resample candles from smaller timeframe ──────────────
-  static resampleCandles(candles, factor) {
+  static resampleCandles(candles, factor, targetMinutes) {
+    if (candles.length === 0) return [];
+    
+    // Group candles by the target timeframe's absolute time bucket
+    const targetSeconds = targetMinutes * 60;
+    const groups = {};
+    const orderedTimes = [];
+    
+    for (const c of candles) {
+      const bucket = Math.floor(c.time / targetSeconds) * targetSeconds;
+      if (!groups[bucket]) {
+        groups[bucket] = [];
+        orderedTimes.push(bucket);
+      }
+      groups[bucket].push(c);
+    }
+    
     const resampled = [];
-    for (let i = 0; i < candles.length; i += factor) {
-      const chunk = candles.slice(i, i + factor);
-      if (chunk.length < factor) break; // skip incomplete
+    for (const bucket of orderedTimes) {
+      const chunk = groups[bucket];
+      // Note: we can allow incomplete current forming candle, but for historical ones we might 
+      // just include them anyway to have the most recent data.
       resampled.push({
-        time: chunk[0].time,
+        time: bucket,
         open: chunk[0].open,
         high: Math.max(...chunk.map(c => c.high)),
         low: Math.min(...chunk.map(c => c.low)),
@@ -191,6 +252,54 @@ class MAEngine {
       });
     }
     return resampled;
+  }
+
+  // ── Update MA for a non-native resampled timeframe ────────
+  updateResampledTimeframeMA(tfIndex, newCandle, targetMinutes) {
+    const s = this.state[tfIndex];
+    if (s.candles.length === 0) return;
+
+    const targetSeconds = targetMinutes * 60;
+    const bucket = Math.floor(newCandle.time / targetSeconds) * targetSeconds;
+    
+    const lastCandle = s.candles[s.candles.length - 1];
+    const isUpdate = lastCandle && lastCandle.time === bucket;
+
+    if (!isUpdate) {
+      // New resampled candle
+      s.prevMAs = { ...s.mas };
+      s.candles.push({
+        time: bucket,
+        open: newCandle.open,
+        high: newCandle.high,
+        low: newCandle.low,
+        close: newCandle.close,
+        volume: newCandle.volume,
+      });
+    } else {
+      // Update existing resampled candle
+      lastCandle.high = Math.max(lastCandle.high, newCandle.high);
+      lastCandle.low = Math.min(lastCandle.low, newCandle.low);
+      lastCandle.close = newCandle.close;
+      lastCandle.volume += newCandle.volume; // Approximation for live updates
+    }
+
+    // Keep buffer at longest period + margin
+    const maxKeep = PERIODS[PERIODS.length - 1] + 10;
+    if (s.candles.length > maxKeep) {
+      s.candles = s.candles.slice(-maxKeep);
+    }
+
+    // Recalculate MAs
+    const prevPositions = this._getRelativePositions(s.prevMAs);
+    PERIODS.forEach(period => {
+      s.mas[period] = this._computeSMA(s.candles, period);
+    });
+
+    const newPositions = this._getRelativePositions(s.mas);
+    this._detectCrossovers(tfIndex, prevPositions, newPositions);
+    
+    s.initialized = true;
   }
 
   // ── Internal: compute Simple Moving Average ──────────────

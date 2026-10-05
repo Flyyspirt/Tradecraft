@@ -3,34 +3,49 @@
 /* ─────────────────────────────────────────────────────────── */
 
 :root {
-  --bg: #08090b;
-  --bg-2: #0d0e12;
-  --panel: #111217;
-  --panel-2: #16171d;
-  --panel-3: #1b1c23;
-  --border: #22242a;
-  --border-soft: #1a1c21;
-  --border-bright: #2e3038;
-  --text: #e8e6e1;
-  --text-dim: #8a8d94;
-  --text-faint: #555861;
-  --up: #23c07a;
-  --up-bg: rgba(35,192,122,0.10);
-  --up-bg-strong: rgba(35,192,122,0.18);
-  --down: #ee4f5a;
-  --down-bg: rgba(238,79,90,0.10);
-  --down-bg-strong: rgba(238,79,90,0.18);
-  --amber: #f2a83e;
-  --amber-bg: rgba(242,168,62,0.07);
-  --amber-border: rgba(242,168,62,0.25);
-  --accent: #5b8def;
-  --native-dot: #5b8def;
-  --resampled-dot: #4a4d54;
+  /* The Wolf of Wall Street Theme */
+  --bg: #141415; /* Warm deep charcoal */
+  --bg-2: #1c1a1b;
+  --panel: #1a1a1c;
+  --panel-2: #222124;
+  --panel-3: #2a282c;
+  --border: #322f2c; /* Warm, brass-tinted dark border */
+  --border-soft: #262423;
+  --border-bright: #443c31;
+  
+  /* Additional UI Variables used by History View */
+  --bg-card: var(--panel);
+  --bg-body: var(--bg-2);
+  --bg-hover: var(--panel-2);
+  --text-main: var(--text);
+  
+  --text: #e6dfd5; /* Slightly warm off-white for low fatigue */
+  --text-dim: #99938b;
+  --text-faint: #635f59;
+  
+  --up: #2ba667; /* Desaturated Terminal Green */
+  --up-bg: rgba(43, 166, 103, 0.10);
+  --up-bg-strong: rgba(43, 166, 103, 0.18);
+  
+  --down: #c52943; /* Deep Crimson */
+  --down-bg: rgba(197, 41, 67, 0.10);
+  --down-bg-strong: rgba(197, 41, 67, 0.18);
+  
+  --amber: #d4af37; /* Vintage Gold / Brass */
+  --amber-bg: rgba(212, 175, 55, 0.08);
+  --amber-border: rgba(212, 175, 55, 0.35);
+  
+  --accent: #d4af37;
+  --native-dot: #d4af37;
+  --resampled-dot: #504a43;
 
-  --radius: 10px;
-  --radius-sm: 6px;
-  --font-sans: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, 'Cascadia Code', monospace;
+  --radius: 4px; /* Sharper, classic institutional corners */
+  --radius-sm: 2px;
+  
+  /* Fonts */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-serif: 'Playfair Display', 'Merriweather', serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
   box-sizing: border-box;
 }
@@ -85,8 +100,8 @@ body {
 }
 
 .pair-block { display: flex; flex-direction: column; gap: 3px; }
-.pair { font-weight: 800; font-size: 16px; letter-spacing: 0.2px; }
-.live-row { display: flex; align-items: center; gap: 6px; color: var(--text-dim); font-size: 11.5px; }
+.pair { font-family: var(--font-serif); font-weight: 700; font-size: 22px; letter-spacing: 0.5px; color: var(--amber); }
+.live-row { display: flex; align-items: center; gap: 6px; color: var(--text-dim); font-size: 11.5px; font-family: var(--font-mono); text-transform: uppercase;}
 
 .live-dot {
   width: 6px; height: 6px; border-radius: 50%; background: var(--amber);
@@ -396,10 +411,10 @@ body {
 .panel-header {
   padding: 12px 18px;
   border-bottom: 1px solid var(--border);
-  font-weight: 700;
-  font-size: 12.5px;
-  color: var(--text-dim);
-  text-transform: uppercase;
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--amber);
   letter-spacing: 0.5px;
   display: flex;
   align-items: center;
@@ -457,9 +472,18 @@ body {
   gap: 12px;
 }
 
+.history-layout {
+  display: flex;
+  gap: 20px;
+  height: 100%;
+}
+
 @media (max-width: 960px) {
   .main-grid {
     grid-template-columns: 1fr;
+  }
+  .history-layout {
+    flex-direction: column-reverse;
   }
 }
 
@@ -480,22 +504,23 @@ body {
   border-radius: 0 0 10px 10px;
   color: var(--text-dim);
   line-height: 1.6;
-  font-family: 'Manrope', sans-serif;
+  font-family: var(--font-sans);
   overflow-y: auto;
   max-height: 70vh;
 }
 
 .doc-content h1 {
-  font-size: 24px;
-  color: var(--text-main);
+  font-size: 28px;
+  font-family: var(--font-serif);
+  color: var(--amber);
   margin-top: 0;
   margin-bottom: 12px;
-  letter-spacing: -0.5px;
 }
 
 .doc-content h2 {
-  font-size: 16px;
-  color: var(--text-main);
+  font-size: 18px;
+  font-family: var(--font-serif);
+  color: var(--text);
   margin-top: 32px;
   margin-bottom: 12px;
   border-bottom: 1px solid var(--border);

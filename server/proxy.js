@@ -22,11 +22,12 @@ const DELTA_WS = 'wss://socket.delta.exchange';
 const SYMBOL = 'BTCUSDT';
 
 // Native resolutions to subscribe for live candle updates
-const WS_CANDLE_RESOLUTIONS = ['1m', '5m', '15m', '30m', '1h', '2h', '4h', '1d', '1w'];
+const WS_CANDLE_RESOLUTIONS = ['1m', '3m', '5m', '15m', '30m', '1h', '2h', '4h', '1d', '1w'];
 
 // Resolutions to bootstrap via REST (fetch historical data on startup)
 const BOOTSTRAP_RESOLUTIONS = {
   '1m':  { candles: 200, minutesPerCandle: 1 },
+  '3m':  { candles: 200, minutesPerCandle: 3 },
   '5m':  { candles: 200, minutesPerCandle: 5 },
   '15m': { candles: 200, minutesPerCandle: 15 },
   '30m': { candles: 200, minutesPerCandle: 30 },

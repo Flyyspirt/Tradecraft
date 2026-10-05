@@ -9,6 +9,7 @@ class DashboardRenderer {
     this.currentView = VIEW_MODES.LADDER;
     this.activeTimeframe = 0;
     this.sortMode = SORT_MODES.DISTANCE;
+    this.dataMode = 'price';
     this._flashTimers = [];
   }
 
@@ -22,22 +23,39 @@ class DashboardRenderer {
       tabs: document.getElementById('tabs'),
       ladderView: document.getElementById('ladderView'),
       heatmapView: document.getElementById('heatmapView'),
+      historyView: document.getElementById('historyView'),
       docView: document.getElementById('docView'),
       crossoverPanel: document.getElementById('crossoverPanel'),
       crossoverList: document.getElementById('crossoverList'),
       viewToggle: document.getElementById('viewToggle'),
       docToggle: document.getElementById('docToggle'),
+      historyToggle: document.getElementById('historyToggle'),
+      dataToggle: document.getElementById('dataToggle'),
       sortSelect: document.getElementById('sortSelect'),
       ladderBody: document.getElementById('ladderBody'),
       heatmapGrid: document.getElementById('heatmapGrid'),
       xoTimeframeFilter: document.getElementById('xoTimeframeFilter'),
       xoDisplayMode: document.getElementById('xoDisplayMode'),
       ladderDisplayMode: document.getElementById('ladderDisplayMode'),
+      historyTableBody: document.getElementById('historyTableBody'),
+      historyLookupContent: document.getElementById('historyLookupContent'),
+      historySortBtn: document.getElementById('historySortBtn'),
+      historyModeToggleBtn: document.getElementById('historyModeToggleBtn'),
+      historyTableWrapper: document.getElementById('historyTableWrapper'),
+      historyGridWrapper: document.getElementById('historyGridWrapper'),
+      historyGridBody: document.getElementById('historyGridBody'),
+      historyPrevBtn: document.getElementById('historyPrevBtn'),
+      historyNextBtn: document.getElementById('historyNextBtn'),
+      historyPageLabel: document.getElementById('historyPageLabel'),
     };
 
     this.xoTfFilterVal = 'ALL';
     this.xoDispModeVal = 'pct';
     this.ladderDisplayMode = 'distance';
+    this.selectedHistoryTime = null;
+    this.historySortDesc = true;
+    this.historyPage = 1;
+    this.historyViewMode = 'table'; // 'table' or 'grid'
 
     this.buildTabs();
     this.bindControls();
@@ -66,11 +84,67 @@ class DashboardRenderer {
   // ── Bind view/sort controls ──────────────────────────────
   bindControls() {
     const viewToggle = this.els.viewToggle;
+    const historyToggle = this.els.historyToggle;
     const docToggle = this.els.docToggle;
+    
     if (viewToggle) {
       viewToggle.addEventListener('click', () => {
         const next = this.currentView === VIEW_MODES.LADDER ? VIEW_MODES.HEATMAP : VIEW_MODES.LADDER;
         this.setView(next);
+      });
+    }
+
+    if (historyToggle) {
+      historyToggle.addEventListener('click', () => {
+        const next = this.currentView === VIEW_MODES.HISTORY ? VIEW_MODES.LADDER : VIEW_MODES.HISTORY;
+        this.setView(next);
+      });
+    }
+
+    const historySortBtn = this.els.historySortBtn;
+    if (historySortBtn) {
+      historySortBtn.addEventListener('click', () => {
+        this.historySortDesc = !this.historySortDesc;
+        historySortBtn.textContent = this.historySortDesc ? 'Sort: Descending ↓' : 'Sort: Ascending ↑';
+        if (window.app) window.app._render();
+      });
+    }
+
+    const modeBtn = this.els.historyModeToggleBtn;
+    if (modeBtn) {
+      modeBtn.addEventListener('click', () => {
+        this.historyViewMode = this.historyViewMode === 'table' ? 'grid' : 'table';
+        modeBtn.textContent = this.historyViewMode === 'table' ? 'Mode: Table' : 'Mode: Matrix';
+        this.els.historyTableWrapper.style.display = this.historyViewMode === 'table' ? 'flex' : 'none';
+        this.els.historyGridWrapper.style.display = this.historyViewMode === 'grid' ? 'block' : 'none';
+        if (window.app) window.app._render();
+      });
+    }
+
+    if (this.els.historyPrevBtn) {
+      this.els.historyPrevBtn.addEventListener('click', () => {
+        if (this.historyPage > 1) {
+          this.historyPage--;
+          if (window.app) window.app._render();
+        }
+      });
+    }
+    
+    if (this.els.historyNextBtn) {
+      this.els.historyNextBtn.addEventListener('click', () => {
+        // max 10 pages for 100 candles
+        if (this.historyPage < 10) {
+          this.historyPage++;
+          if (window.app) window.app._render();
+        }
+      });
+    }
+
+    const dataToggle = this.els.dataToggle;
+    if (dataToggle) {
+      dataToggle.addEventListener('click', () => {
+        this.dataMode = this.dataMode === 'price' ? 'momentum' : 'price';
+        dataToggle.textContent = this.dataMode === 'price' ? '📊 Mode: Price' : '📊 Mode: MA Change';
       });
     }
 
@@ -126,16 +200,20 @@ class DashboardRenderer {
     this.currentView = mode;
     const ladder = this.els.ladderView;
     const heatmap = this.els.heatmapView;
+    const historyView = this.els.historyView;
     const docView = this.els.docView;
     const toggle = this.els.viewToggle;
+    const historyToggle = this.els.historyToggle;
     const docToggle = this.els.docToggle;
     const sortWrap = document.getElementById('sortWrap');
 
     if (ladder) ladder.style.display = mode === VIEW_MODES.LADDER ? '' : 'none';
     if (heatmap) heatmap.style.display = mode === VIEW_MODES.HEATMAP ? '' : 'none';
+    if (historyView) historyView.style.display = mode === VIEW_MODES.HISTORY ? '' : 'none';
     if (docView) docView.style.display = mode === VIEW_MODES.DOC ? '' : 'none';
 
     if (toggle) toggle.textContent = mode === VIEW_MODES.HEATMAP ? '☰ Ladder' : '⊞ Matrix';
+    if (historyToggle) historyToggle.textContent = mode === VIEW_MODES.HISTORY ? '✕ Close History' : '🕒 History';
     if (docToggle) docToggle.textContent = mode === VIEW_MODES.DOC ? '✕ Close Guide' : '📖 Documentation';
     if (sortWrap) sortWrap.style.display = mode === VIEW_MODES.LADDER ? '' : 'none';
   }
@@ -189,7 +267,12 @@ class DashboardRenderer {
 
     const { above, below, price } = ladderData;
     const allRows = [...above, ...below];
-    const maxDist = Math.max(...allRows.map(r => r.distance), 1);
+    let maxDist = 1;
+    if (this.dataMode === 'momentum') {
+      maxDist = Math.max(...allRows.map(r => Math.abs(r.rateOfChange)), 0.0001);
+    } else {
+      maxDist = Math.max(...allRows.map(r => r.distance), 1);
+    }
 
     let html = '';
 
@@ -249,19 +332,37 @@ class DashboardRenderer {
           return;
         }
 
-        // Color intensity based on distance (capped at 2%)
-        const intensity = Math.min(Math.abs(cell.distancePct) / 2, 1);
+        // Color intensity based on distance (capped at 2%) or momentum (capped at 0.5%)
+        let intensity = 0;
+        let isBullish = cell.bullish;
+        let displayVal = '';
+        let tooltipVal = '';
+
+        if (this.dataMode === 'momentum') {
+          intensity = Math.min(Math.abs(cell.rateOfChange) / 0.5, 1);
+          isBullish = cell.momentumBullish;
+          const sign = cell.rateOfChange > 0 ? '+' : '';
+          displayVal = `${sign}${cell.rateOfChange.toFixed(3)}%`;
+          tooltipVal = `MA Change: ${sign}${cell.diffPts.toFixed(1)} pts (${displayVal})`;
+        } else {
+          intensity = Math.min(Math.abs(cell.distancePct) / 2, 1);
+          isBullish = cell.bullish;
+          const sign = cell.distancePct > 0 ? '+' : '';
+          displayVal = `${sign}${cell.distancePct.toFixed(2)}%`;
+          tooltipVal = `Dist: ${sign}${cell.distancePct.toFixed(3)}%`;
+        }
+
         const alpha = 0.15 + intensity * 0.55;
-        const bgColor = cell.bullish
+        const bgColor = isBullish
           ? `rgba(35,192,122,${alpha})`
           : `rgba(238,79,90,${alpha})`;
-        const textColor = cell.bullish ? 'var(--up)' : 'var(--down)';
+        const textColor = isBullish ? 'var(--up)' : 'var(--down)';
 
         // Tooltip content
-        const tooltip = `MA${period} @ ${tf.label}\\n$${this._fmt(cell.value)}\\n${cell.distancePct > 0 ? '+' : ''}${cell.distancePct.toFixed(3)}%`;
+        const tooltip = `MA${period} @ ${tf.label}\\n$${this._fmt(cell.value)}\\n${tooltipVal}`;
 
         html += `<div class="hm-cell" style="background:${bgColor};color:${textColor}" title="${tooltip}">
-          ${cell.distancePct > 0 ? '+' : ''}${cell.distancePct.toFixed(2)}%
+          ${displayVal}
         </div>`;
       });
 
@@ -269,6 +370,122 @@ class DashboardRenderer {
     });
 
     grid.innerHTML = html;
+  }
+
+  // ── Render history view ──────────────────────────────────
+  renderHistory(historyData) {
+    if (this.currentView !== VIEW_MODES.HISTORY) return;
+    const tbody = this.els.historyTableBody;
+    const lookup = this.els.historyLookupContent;
+    if (!tbody || !lookup) return;
+
+    let tableHtml = '';
+    
+    // Set default selected to the most recent candle if not selected or if time no longer exists
+    if (!this.selectedHistoryTime || !historyData.find(c => c.time === this.selectedHistoryTime)) {
+      this.selectedHistoryTime = historyData.length > 0 ? historyData[0].time : null;
+    }
+
+    // historyData is [newest, ..., oldest]
+    // Add an index property where oldest is 1, newest is N
+    const indexedData = historyData.map((c, idx) => {
+      return { ...c, candleIndex: historyData.length - idx };
+    });
+
+    let displayData = indexedData;
+    if (!this.historySortDesc) {
+      displayData = [...indexedData].reverse();
+    }
+
+    if (this.historyViewMode === 'table') {
+      // Pagination logic
+      const itemsPerPage = 10;
+      const totalPages = Math.ceil(displayData.length / itemsPerPage) || 1;
+      if (this.historyPage > totalPages) this.historyPage = totalPages;
+      
+      this.els.historyPageLabel.textContent = `Page ${this.historyPage} of ${totalPages}`;
+      
+      const startIndex = (this.historyPage - 1) * itemsPerPage;
+      const pageData = displayData.slice(startIndex, startIndex + itemsPerPage);
+
+      pageData.forEach((candle) => {
+        const isSelected = candle.time === this.selectedHistoryTime;
+        const d = new Date(candle.time * 1000);
+        const timeStr = d.toLocaleTimeString('en-US', { hour12: false }) + ' ' + d.toLocaleDateString();
+        
+        const trClass = isSelected ? 'background: var(--bg-hover); font-weight: bold; cursor: pointer;' : 'cursor: pointer; border-bottom: 1px solid var(--border);';
+        
+        tableHtml += `<tr style="${trClass}" onclick="window.app.renderer.selectHistoryCandle(${candle.time})">
+          <td style="padding: 10px; color: var(--text-muted);">${candle.candleIndex}</td>
+          <td style="padding: 10px; color: var(--text-muted);">${timeStr}</td>
+          <td style="padding: 10px; text-align: right;">${this._fmt(candle.open)}</td>
+          <td style="padding: 10px; text-align: right; color: var(--up);">${this._fmt(candle.high)}</td>
+          <td style="padding: 10px; text-align: right; color: var(--down);">${this._fmt(candle.low)}</td>
+          <td style="padding: 10px; text-align: right;">${this._fmt(candle.close)}</td>
+        </tr>`;
+      });
+      tbody.innerHTML = tableHtml;
+    } else {
+      // Grid mode (Matrix)
+      let gridHtml = '';
+      displayData.forEach(candle => {
+        const isSelected = candle.time === this.selectedHistoryTime;
+        const isBullish = candle.close >= candle.open;
+        const bgColor = isBullish ? 'var(--up-bg)' : 'var(--down-bg)';
+        const borderColor = isSelected ? 'var(--amber)' : (isBullish ? 'var(--up)' : 'var(--down)');
+        const opacity = isSelected ? '1' : '0.6';
+        const color = isBullish ? 'var(--up)' : 'var(--down)';
+        
+        gridHtml += `
+          <div onclick="window.app.renderer.selectHistoryCandle(${candle.time})" 
+               style="background: ${bgColor}; border: 1px solid ${borderColor}; opacity: ${opacity}; 
+                      border-radius: var(--radius-sm); padding: 8px 4px; text-align: center; cursor: pointer;
+                      color: ${color}; font-family: var(--font-mono); font-size: 10px;"
+               title="Candle #${candle.candleIndex}">
+            #${candle.candleIndex}<br>
+            <span style="font-size: 8px; color: var(--text-faint);">${(new Date(candle.time * 1000)).toLocaleTimeString('en-US', {hour12: false}).slice(0, 5)}</span>
+          </div>
+        `;
+      });
+      if (this.els.historyGridBody) this.els.historyGridBody.innerHTML = gridHtml;
+    }
+
+    // Render lookup pane
+    const selectedCandle = historyData.find(c => c.time === this.selectedHistoryTime);
+    if (selectedCandle) {
+      const d = new Date(selectedCandle.time * 1000);
+      const timeStr = d.toLocaleTimeString('en-US', { hour12: false }) + ' ' + d.toLocaleDateString();
+      
+      let lookupHtml = `<div style="margin-bottom: 16px;">
+        <div style="color: var(--text-muted); margin-bottom: 8px;">Time: ${timeStr}</div>
+        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 4px;">
+          <span>Price (Close)</span> <span>$${this._fmt(selectedCandle.close)}</span>
+        </div>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+      `;
+      
+      PERIODS.forEach(period => {
+        const val = selectedCandle.mas[period];
+        const dist = val - selectedCandle.close;
+        const color = dist > 0 ? 'var(--down)' : 'var(--up)';
+        lookupHtml += `
+          <div style="background: var(--bg-body); padding: 8px; border-radius: 4px; border: 1px solid var(--border);">
+            <div style="color: var(--text-muted); font-size: 12px;">MA ${period}</div>
+            <div style="color: ${color}; font-size: 15px; margin-top: 4px;">$${this._fmt(val)}</div>
+          </div>
+        `;
+      });
+      lookupHtml += '</div>';
+      lookup.innerHTML = lookupHtml;
+    } else {
+      lookup.innerHTML = 'Select a candle from the table to view its detailed Moving Averages and data.';
+    }
+  }
+
+  selectHistoryCandle(time) {
+    this.selectedHistoryTime = time;
+    if (window.app) window.app._render(); // Force re-render
   }
 
   // ── Render crossover panel ───────────────────────────────
@@ -285,7 +502,12 @@ class DashboardRenderer {
     }
 
     if (filtered.length === 0) {
-      list.innerHTML = `<div class="xo-empty">No crossovers detected yet for ${this.xoTfFilterVal === 'ALL' ? 'any timeframe' : this.xoTfFilterVal}</div>`;
+      const isBootstrapping = window.app && window.app.status === 'bootstrapping';
+      if (isBootstrapping) {
+        list.innerHTML = `<div class="xo-empty">Searching for crossovers...</div>`;
+      } else {
+        list.innerHTML = `<div class="xo-empty">No crossover present right now.</div>`;
+      }
       return;
     }
 
@@ -327,7 +549,15 @@ class DashboardRenderer {
 
   // ── Internal: make a single ladder row ───────────────────
   _makeLadderRow(r, maxDist, side) {
-    const barPct = Math.min(100, (r.distance / maxDist) * 100);
+    let barPct = 0;
+    let isPositive = true;
+    if (this.dataMode === 'momentum') {
+      barPct = Math.min(100, (Math.abs(r.rateOfChange) / maxDist) * 100);
+      isPositive = r.rateOfChange >= 0;
+    } else {
+      barPct = Math.min(100, (r.distance / maxDist) * 100);
+      isPositive = side === 'below';
+    }
 
     // Trend arrow
     const trendMap = {
@@ -339,21 +569,31 @@ class DashboardRenderer {
 
     // Format delta column based on display mode
     let deltaHtml = '';
-    if (this.ladderDisplayMode === 'diff_pts') {
+    if (this.dataMode === 'momentum') {
       const sign = r.diffPts > 0 ? '+' : '';
-      deltaHtml = `${sign}${r.diffPts.toFixed(1)} pts`;
-    } else if (this.ladderDisplayMode === 'diff_pct') {
-      const sign = r.diffPct > 0 ? '+' : '';
-      deltaHtml = `${sign}${r.diffPct.toFixed(3)}%`;
+      deltaHtml = `${sign}${r.diffPts.toFixed(1)} pts (${sign}${r.rateOfChange.toFixed(3)}%)`;
     } else {
-      deltaHtml = `${r.distanceBps.toFixed(0)} bps`;
+      if (this.ladderDisplayMode === 'diff_pts') {
+        const sign = r.diffPts > 0 ? '+' : '';
+        deltaHtml = `${sign}${r.diffPts.toFixed(1)} pts`;
+      } else if (this.ladderDisplayMode === 'diff_pct') {
+        const sign = r.diffPct > 0 ? '+' : '';
+        deltaHtml = `${sign}${r.diffPct.toFixed(3)}%`;
+      } else {
+        deltaHtml = `${r.distanceBps.toFixed(0)} bps`;
+      }
+    }
+
+    let barStyle = `width:${barPct}%;`;
+    if (this.dataMode === 'momentum') {
+      barStyle += isPositive ? 'background:var(--up); margin-left:0; margin-right:auto;' : 'background:var(--down); margin-left:auto; margin-right:0;';
     }
 
     return `
       <div class="row ${side}">
         <div class="label mono">MA ${r.period}</div>
         <div class="trend-col ${trendClass}">${trendArrow}</div>
-        <div class="bar-track"><div class="bar" style="width:${barPct}%"></div></div>
+        <div class="bar-track"><div class="bar" style="${barStyle}"></div></div>
         <div class="delta mono">${deltaHtml}</div>
         <div class="val mono">${this._fmt(r.value)}</div>
       </div>

@@ -22,7 +22,7 @@ const CONFIG = {
 
   // ── Candle limits ──────────────────────────────────────────
   MAX_CANDLES_PER_REQUEST: 2000,  // API limit ~4000, stay conservative
-  BOOTSTRAP_MULTIPLIER: 1.5,      // fetch 1.5× longest MA period for buffer
+  BOOTSTRAP_MULTIPLIER: 2.5,      // fetch 2.5× longest MA period for buffer (supports 100-candle history)
 
   // ── Update intervals (ms) ─────────────────────────────────
   UI_REFRESH_INTERVAL: 1000,      // re-render UI every 1 second
@@ -67,6 +67,7 @@ const PERIODS = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
 const VIEW_MODES = {
   LADDER: 'ladder',
   HEATMAP: 'heatmap',
+  HISTORY: 'history',
   DOC: 'doc'
 };
 

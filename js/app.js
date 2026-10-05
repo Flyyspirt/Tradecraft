@@ -64,8 +64,8 @@ class TradecraftApp {
             let tfCandles = candles;
 
             // Resample if this timeframe is non-native
-            if (!tf.native && tf.resampleFactor) {
-              tfCandles = MAEngine.resampleCandles(candles, tf.resampleFactor);
+            if (!tf.native && tf.resampleFrom) {
+              tfCandles = MAEngine.resampleCandles(candles, tf.resampleFactor, tf.minutes);
             }
 
             if (tfCandles.length > 0) {
@@ -97,13 +97,10 @@ class TradecraftApp {
   _onCandle(resolution, candle) {
     // Find all timeframes that use this resolution
     TIMEFRAMES.forEach((tf, i) => {
-      if (tf.resolution === resolution) {
-        if (tf.native) {
-          this.engine.updateTimeframeMA(i, candle);
-        }
-        // For non-native, we'd need to buffer candles and resample
-        // This is handled by the bootstrap; live updates come via
-        // the base resolution candles that feed native timeframes
+      if (tf.native && tf.resolution === resolution) {
+        this.engine.updateTimeframeMA(i, candle);
+      } else if (!tf.native && tf.resampleFrom === resolution) {
+        this.engine.updateResampledTimeframeMA(i, candle, tf.minutes);
       }
     });
   }
@@ -133,6 +130,10 @@ class TradecraftApp {
     // Heatmap view
     const heatmapData = this.engine.getHeatmapData();
     this.renderer.renderHeatmap(heatmapData);
+
+    // History view
+    const historyData = this.engine.getHistoryData(tfIdx);
+    this.renderer.renderHistory(historyData);
 
     // Crossovers
     const crossovers = this.engine.getCrossovers();
